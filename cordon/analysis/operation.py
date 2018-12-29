@@ -17,26 +17,32 @@ class Operation(object):
         if focus_edge and not network.has_edge(*focus_edge):
             raise ParameterError('edge {} does not exist'.format(focus_edge))
 
-    def apply(self, network, on_node=True, on_edge=False, in_place='column_name', role=None):
+    def apply(self, network, on_node=True, on_edge=False, in_place=True, roles=None):
         node_results = []
         edge_results = []
         if on_node:
             for node in network.nodes():
                 ns, es = self.get_input_elements(network, focus_node=node)
-                nodes_data = [network.node[n]['records'] for n in ns]
-                edges_data = [network[e[0]][e[1]]['records'] for e in es]
-                result = self.func(nodes_data, edges_data)
+                nodes_data = [network.get_node_records(n) for n in ns]
+                edges_data = [network.get_edge_records(e) for e in es]
+                result = self.func(nodes_data, edges_data,network.get_node_records(node))
                 if in_place:
-                    network.node[node]['records'].add_feature(in_place, data=result, role=role)
+                    if network.get_node_records(node):
+                        network.get_node_records(node).data.update(roles,result)
+                    else:
+                        network.set_node_records(node, roles, result)
                 node_results.append((node, result))
         if on_edge:
             for edge in network.edges():
                 ns, es = self.get_input_elements(network, focus_edge=edge)
-                nodes_data = [network.node[n]['records'] for n in ns]
-                edges_data = [network[e[0]][e[1]]['records'] for e in es]
-                result = self.func(nodes_data,edges_data)
+                nodes_data = [network.get_node_records(n) for n in ns]
+                edges_data = [network.get_edge_records(e) for e in es]
+                result = self.func(nodes_data,edges_data,network.get_edge_records(edge))
                 if in_place:
-                    network[edge[0]][edge[1]]['records'].add_feature(in_place, data=result, role=role)
+                    if network.get_edge_records(edge):
+                        network.get_edge_records(edge).data.update(roles,result)
+                    else:
+                        network.set_edge_records(edge,roles,result)
                 edge_results.append((edge, result))
         return node_results, edge_results
 
@@ -51,7 +57,6 @@ class LocalOperation(Operation):
             nodes = []
             edges = [focus_edge,]
         return nodes, edges
-
 
 
 

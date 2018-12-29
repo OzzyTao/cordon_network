@@ -1,4 +1,4 @@
-from .tabular.records import PresenceRecords, Records
+from .tabular.records import PresenceRecords, Records, PresenceFieldsMapping
 
 class DataWrapper(object):
     def __init__(self, movement_records, static_data=None):
@@ -9,6 +9,9 @@ class DataWrapper(object):
 
     def get_records_individual(self, id_value):
         return self.data.id_filter(id_value)
+
+    def add_record(self, row_dict):
+        self.data.add_row_dict(row_dict)
 
 class NodeDataWrapper(DataWrapper):
     def __init__(self, movement_records, static_data=None):

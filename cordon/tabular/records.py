@@ -1,4 +1,5 @@
 from pandas import DataFrame
+import pandas as pd
 
 class DataConfigurationError(Exception):
     pass
@@ -33,18 +34,39 @@ class FieldsMapping(object):
         else:
             raise ColumnMissing('column {} does not exist'.format(role))
 
+    def __eq__(self, other):
+        return self.name_map == other.name_map
+
+    def is_compatible_with(self, raw_record):
+        allowed_fields = set(self.name_map.values())
+        provided_fields = set(raw_record.keys())
+        return allowed_fields==provided_fields
 
 
 class PresenceFieldsMapping(FieldsMapping):
     MANDATORY_FIELDS = ['start_time', 'end_time']
+    def add_field(self, role, name=None):
+        dict_copy = dict(self.name_map)
+        if name:
+            dict_copy.update({role:name})
+        else:
+            dict_copy.update({role:role})
+        return PresenceFieldsMapping(**dict_copy)
 
 
 class TransactionFieldsMapping(FieldsMapping):
     MANDATORY_FIELDS = ['time']
+    def add_field(self, role, name=None):
+        dict_copy = dict(self.name_map)
+        if name:
+            dict_copy.update({role: name})
+        else:
+            dict_copy.update({role: role})
+        return TransactionFieldsMapping(**dict_copy)
 
 
 class Records(object):
-    def __init__(self, table_df, mapping):
+    def __init__(self, mapping, table_df):
         self.df = table_df
         self.fields_mapping = mapping
 
@@ -62,12 +84,25 @@ class Records(object):
         else:
             raise ParameterError('either data or func has to be provided')
         if role:
-            self.fields_mapping[role] = name
+            self.fields_mapping.name_map[role] = name
+        else:
+            self.fields_mapping.name_map[name] = name
+
+    def update(self, mapping, df):
+        self.df = df
+        self.fields_mapping = mapping
+
+    def add_row_dict(self, row_dict):
+        if self.fields_mapping.is_compatible_with(row_dict):
+            if self.df:
+                self.df = self.df.append(row_dict)
+            else:
+                self.df = pd.DataFrame([row_dict])
 
 
 class PresenceRecords(Records):
-    def __init__(self, table_df, mapping):
-        if not isinstance(table_df, DataFrame):
+    def __init__(self,mapping, table_df=None):
+        if table_df and not isinstance(table_df, DataFrame):
             raise ParameterError('First parameter should be a DataFrame instance')
         if not isinstance(mapping, PresenceFieldsMapping):
             raise ParameterError('Second parameter should be a PresenceFieldsMapping instance')
@@ -78,8 +113,8 @@ class PresenceRecords(Records):
 
 
 class TransactionRecords(Records):
-    def __init__(self, table_df, mapping):
-        if not isinstance(table_df, DataFrame):
+    def __init__(self, mapping, table_df=None):
+        if table_df and not isinstance(table_df, DataFrame):
             raise ParameterError('First parameter should be a DataFrame instance')
         if not isinstance(mapping, TransactionFieldsMapping):
             raise ParameterError('Second parameter should be a TransactionFieldsMapping instance')
